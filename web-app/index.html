@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AVANTICA – INDEED | Bolsa de Empleo TI</title>
+  <style>
+    :root { --bg:#f4f7fb; --card:#fff; --text:#102033; --muted:#5a6b80; --border:#d7e0ec; --primary:#2557a7; --ok:#16a34a; }
+    [data-theme="dark"] { --bg:#0a111f; --card:#131e33; --text:#eef4fb; --muted:#97abc5; --border:#253755; --primary:#60a5fa; --ok:#22c55e; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); transition:background .2s,color .2s; }
+    .wrap { max-width:1040px; margin:0 auto; padding:22px 16px 64px; }
+    .top { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; margin-bottom:16px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:14px; }
+    .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; }
+    input, select, button { font:inherit; padding:8px 11px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); min-width:0; }
+    button { cursor:pointer; font-weight:600; }
+    .btn-primary { background:var(--primary); color:#fff; border-color:transparent; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px; }
+    .pill { display:inline-block; padding:3px 9px; border-radius:999px; font-size:12px; font-weight:700; background:rgba(37,87,167,.12); color:var(--primary); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 style="margin:0;">💼 AVANTICA – INDEED | Portal de Vacantes TI</h1>
+        <div id="stats" style="color:var(--muted);font-size:14px;"></div>
+      </div>
+      <button type="button" id="themeBtn">🌙 Oscuro</button>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <input id="q" type="search" placeholder="Buscar puesto, tecnología o ciudad..." />
+        <select id="mod"><option value="">Todas las modalidades</option><option value="Remoto">Remoto</option><option value="Híbrido">Híbrido</option><option value="Presencial">Presencial</option></select>
+        <input id="minSal" type="number" min="0" step="200" placeholder="Salario mínimo (USD)" />
+      </div>
+    </div>
+
+    <div id="jobsGrid" class="grid" style="margin-bottom:18px;"></div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Publicar nueva vacante</h3>
+      <form id="jobForm" class="row">
+        <input id="jTitle" required placeholder="Puesto *" />
+        <input id="jCompany" required placeholder="Empresa *" />
+        <input id="jLocation" value="San José, CR" placeholder="Ubicación" />
+        <select id="jMod"><option value="Remoto">Remoto</option><option value="Híbrido">Híbrido</option><option value="Presencial">Presencial</option></select>
+        <input id="jSal" type="number" min="0" value="3800" placeholder="Salario USD" />
+        <input id="jStack" placeholder="Stack (ej. Python, Docker)" />
+        <button type="submit" class="btn-primary">+ Publicar</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Mis postulaciones registradas</h3>
+      <div id="appsBox" style="font-size:14px;color:var(--muted);"></div>
+    </div>
+  </div>
+  <script src="./jobs-store.js"></script>
+  <script>
+    (function () {
+      var store = window.AvanticaJobsStore.createStore(window.localStorage);
+      var TKEY = 'avantica_indeed_theme';
+      function $(id) { return document.getElementById(id); }
+      function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+      function setTheme(t) { document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem(TKEY, t); } catch (e) {} $('themeBtn').textContent = t === 'dark' ? '☀️ Claro' : '🌙 Oscuro'; }
+      setTheme(localStorage.getItem(TKEY) === 'dark' ? 'dark' : 'light');
+      $('themeBtn').addEventListener('click', function () { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); });
+
+      function render() {
+        var st = store.getState();
+        var list = store.filterJobs({ query: $('q').value, modality: $('mod').value, minSalary: $('minSal').value });
+        $('stats').textContent = list.length + ' vacantes visibles · ' + st.savedIds.length + ' guardadas · ' + st.applications.length + ' postulaciones';
+        $('jobsGrid').innerHTML = list.length ? list.map(function (j) {
+          var saved = st.savedIds.indexOf(j.id) >= 0;
+          return '<article class="card" style="margin:0;">' +
+            '<div style="display:flex;justify-content:space-between;gap:8px;align-items:start;">' +
+              '<span class="pill">' + esc(j.modality) + '</span>' +
+              '<button type="button" data-save="' + esc(j.id) + '">' + (saved ? '★ Guardada' : '☆ Guardar') + '</button>' +
+            '</div>' +
+            '<h3 style="margin:10px 0 4px;">' + esc(j.title) + '</h3>' +
+            '<div style="color:var(--muted);font-size:13.5px;">' + esc(j.company) + ' · ' + esc(j.location) + '</div>' +
+            '<div style="margin:8px 0;font-weight:700;color:var(--ok);">$' + Number(j.salaryUsd || 0).toLocaleString('en-US') + ' USD / mes</div>' +
+            '<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">' + esc(j.stack) + '</div>' +
+            '<button type="button" class="btn-primary" data-apply="' + esc(j.id) + '">Postularme</button>' +
+          '</article>';
+        }).join('') : '<div class="card">No hay vacantes con esos filtros.</div>';
+
+        $('appsBox').innerHTML = st.applications.length
+          ? st.applications.map(function (a) { return '<div style="padding:6px 0;border-bottom:1px solid var(--border);"><strong>' + esc(a.jobTitle) + '</strong> (' + esc(a.company) + ') — ' + esc(a.candidateName) + ' &lt;' + esc(a.email) + '&gt; · <span class="pill">' + esc(a.status) + '</span></div>'; }).join('')
+          : 'Aún no has enviado postulaciones.';
+      }
+
+      ['q', 'mod', 'minSal'].forEach(function (id) { $(id).addEventListener('input', render); $(id).addEventListener('change', render); });
+      $('jobForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var r = store.addJob({ title: $('jTitle').value, company: $('jCompany').value, location: $('jLocation').value, modality: $('jMod').value, salaryUsd: $('jSal').value, stack: $('jStack').value });
+        if (r.ok) { this.reset(); $('jLocation').value = 'San José, CR'; $('jSal').value = '3800'; render(); }
+      });
+      $('jobsGrid').addEventListener('click', function (e) {
+        var s = e.target.closest('[data-save]');
+        if (s) { store.toggleSave(s.getAttribute('data-save')); render(); return; }
+        var a = e.target.closest('[data-apply]');
+        if (a) {
+          var name = window.prompt('Tu nombre completo:', 'Andrés Jiménez');
+          if (!name) return;
+          var mail = window.prompt('Tu correo electrónico:', 'candidato@correo.cr');
+          if (!mail) return;
+          var res = store.applyToJob(a.getAttribute('data-apply'), name, mail);
+          if (!res.ok) window.alert(res.error);
+          render();
+        }
+      });
+      render();
+    })();
+  </script>
+</body>
+</html>
